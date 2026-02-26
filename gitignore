@@ -1,0 +1,10 @@
+# Mason installed LSPs and tools
+local/share/nvim/mason/
+
+# Swap, undo, backup
+local/share/nvim/swap/
+local/share/nvim/undo/
+local/share/nvim/backup/
+
+# Lazy cache
+local/share/nvim/lazy/cache/
