@@ -6,3 +6,12 @@
 --
 -- Or remove existing autocmds by their group name (which is prefixed with `lazyvim_` for the defaults)
 -- e.g. vim.api.nvim_del_augroup_by_name("lazyvim_wrap_spell")
+-- Formatar qualquer arquivo ao salvar, mas só se houver LSP ativo
+vim.api.nvim_create_autocmd("BufWritePre", {
+  pattern = "*", -- aplica a todos os arquivos
+  callback = function()
+    if #vim.lsp.get_active_clients({ bufnr = 0 }) > 0 then
+      vim.lsp.buf.format({ async = false })
+    end
+  end,
+})
