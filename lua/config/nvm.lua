@@ -1,3 +1,5 @@
 -- Carregar NVM pro Neovim, pra Mason funcionar
-vim.env.NVM_DIR = os.getenv("HOME") .. "/.nvm"
-vim.cmd("silent !source $NVM_DIR/nvm.sh")
+local nvm_dir = (os.getenv("HOME") or "") .. "/.nvm"
+if vim.fn.isdirectory(nvm_dir) == 1 then
+	vim.env.NVM_DIR = nvm_dir
+end

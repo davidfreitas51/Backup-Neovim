@@ -1,0 +1,193 @@
+#!/usr/bin/env sh
+set -eu
+
+follow_links=0
+show_hidden=0
+want_files=0
+want_dirs=0
+want_links=0
+max_depth=""
+pattern=""
+roots=""
+globs=""
+
+append_root() {
+  if [ -z "$roots" ]; then
+    roots="$1"
+  else
+    roots="$roots\n$1"
+  fi
+}
+
+append_glob() {
+  if [ -z "$globs" ]; then
+    globs="$1"
+  else
+    globs="$globs\n$1"
+  fi
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --type)
+      shift
+      [ "$#" -gt 0 ] || break
+      case "$1" in
+        f) want_files=1 ;;
+        d) want_dirs=1 ;;
+        l|s) want_links=1 ;;
+      esac
+      ;;
+    -t)
+      shift
+      [ "$#" -gt 0 ] || break
+      case "$1" in
+        f) want_files=1 ;;
+        d) want_dirs=1 ;;
+        l|s) want_links=1 ;;
+      esac
+      ;;
+    -L)
+      follow_links=1
+      ;;
+    -H)
+      show_hidden=1
+      ;;
+    --hidden)
+      show_hidden=1
+      ;;
+    --max-depth)
+      shift
+      [ "$#" -gt 0 ] || break
+      max_depth="$1"
+      ;;
+    --color|--path-separator|-E|-e|--max-results|--threads)
+      shift
+      [ "$#" -gt 0 ] || break
+      ;;
+    -g|--glob)
+      shift
+      [ "$#" -gt 0 ] || break
+      append_glob "$1"
+      ;;
+    --no-ignore|--no-messages|--strip-cwd-prefix)
+      ;;
+    --)
+      shift
+      while [ "$#" -gt 0 ]; do
+        if [ -d "$1" ]; then
+          append_root "$1"
+        elif [ -z "$pattern" ]; then
+          pattern="$1"
+        fi
+        shift
+      done
+      break
+      ;;
+    -*)
+      ;;
+    *)
+      if [ -d "$1" ]; then
+        append_root "$1"
+      elif [ -z "$pattern" ]; then
+        pattern="$1"
+      fi
+      ;;
+  esac
+  shift
+done
+
+if [ -z "$roots" ]; then
+  roots="."
+fi
+
+if [ "$want_files" -eq 0 ] && [ "$want_dirs" -eq 0 ] && [ "$want_links" -eq 0 ]; then
+  want_files=1
+fi
+
+matches_glob() {
+  target="$1"
+  if [ -z "$globs" ]; then
+    return 0
+  fi
+
+  old_ifs=$IFS
+  IFS=''
+  found=1
+  for glob in $globs; do
+    [ -n "$glob" ] || continue
+    case "$glob" in
+      \{*\})
+        glob=${glob#\{}
+        glob=${glob%\}}
+        IFS=,
+        set -- $glob
+        IFS=''
+        for part do
+          case "$target" in
+            *"$part"*) found=0; break 2 ;;
+          esac
+        done
+        ;;
+      *)
+        case "$target" in
+          *"$glob"*) found=0; break ;;
+        esac
+        ;;
+    esac
+  done
+  IFS=$old_ifs
+  return "$found"
+}
+
+output_path() {
+  path="$1"
+  if matches_glob "$path"; then
+    printf '%s\n' "$path"
+  fi
+}
+
+type_expr=""
+if [ "$want_files" -eq 1 ]; then
+  type_expr="-type f"
+fi
+if [ "$want_dirs" -eq 1 ]; then
+  [ -n "$type_expr" ] && type_expr="$type_expr -o"
+  type_expr="$type_expr -type d"
+fi
+if [ "$want_links" -eq 1 ]; then
+  [ -n "$type_expr" ] && type_expr="$type_expr -o"
+  type_expr="$type_expr -type l"
+fi
+
+find_cmd="find"
+if [ "$follow_links" -eq 1 ]; then
+  find_cmd="find -L"
+fi
+
+depth_expr=""
+if [ -n "$max_depth" ]; then
+	depth_expr="-maxdepth $max_depth"
+fi
+
+printf '%s\n' "$roots" | while IFS= read -r root; do
+  [ -n "$root" ] || continue
+  if [ -n "$type_expr" ]; then
+    eval "$find_cmd \"$root\" $depth_expr \\( $type_expr \\) -not -path '*/.git/*'" | while IFS= read -r p; do
+      if [ "$show_hidden" -eq 0 ]; then
+        case "$p" in
+          */.*) continue ;;
+        esac
+      fi
+      if [ -n "$pattern" ]; then
+        case "$p" in
+          *"$pattern"*) ;;
+          *) continue ;;
+        esac
+      fi
+      output_path "$p"
+    done
+  else
+    eval "$find_cmd \"$root\" $depth_expr -not -path '*/.git/*'"
+  fi
+done
