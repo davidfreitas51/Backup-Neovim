@@ -2,9 +2,13 @@
 local M = {}
 
 M.setup = function()
-  -- Por exemplo, Catppuccin
-  require("catppuccin").setup({ flavour = "mocha" })
-  vim.cmd("colorscheme catppuccin")
+  local ok, catppuccin = pcall(require, "catppuccin")
+  if not ok then
+    return
+  end
+
+  catppuccin.setup({ flavour = "mocha" })
+  vim.cmd.colorscheme("catppuccin")
 end
 
 return M
