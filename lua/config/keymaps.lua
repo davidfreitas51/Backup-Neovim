@@ -5,10 +5,6 @@
 if vim.g.vscode then
 	local vscode = require("vscode")
 
-	vim.keymap.set("n", "<leader>ff", function()
-		vscode.action("workbench.action.quickOpen")
-	end)
-
 	vim.keymap.set("n", "<leader>cf", function()
 		vscode.action("editor.action.formatDocument")
 	end)
